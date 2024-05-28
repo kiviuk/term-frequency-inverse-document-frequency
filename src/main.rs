@@ -191,7 +191,7 @@ fn content_from_file(
     }
 }
 
-fn file_to_absolut_term_count(
+fn file_to_term_count(
     file_to_count_per_term: &HashMap<FilePath, HashMap<String, usize>>,
 ) -> HashMap<FilePath, usize> {
     let mut totals: HashMap<FilePath, usize> = HashMap::new();
@@ -315,14 +315,14 @@ fn main() {
         file_to_absolute_term_frequency(&file_path_to_content_map);
 
     // Calculate total number of terms for each file
-    let file_to_absolute_term_count_map: HashMap<FilePath, usize> =
-        file_to_absolut_term_count(&file_to_absolute_term_frequency_map);
+    let file_to_term_count_map: HashMap<FilePath, usize> =
+        file_to_term_count(&file_to_absolute_term_frequency_map);
 
     // Calculate relative term frequency for each term in each file
     let file_to_relative_term_frequency_map: HashMap<FilePath, HashMap<String, f64>> =
         file_to_relative_term_frequency(
             &file_to_absolute_term_frequency_map,
-            &file_to_absolute_term_count_map,
+            &file_to_term_count_map,
         );
 
     // Sort terms based on their relative frequency
@@ -395,7 +395,7 @@ mod tests {
         mock_file_to_term_count.insert(submission_file.clone(), mock_term_counts);
 
         // when:
-        let result = file_to_absolut_term_count(&mock_file_to_term_count);
+        let result = file_to_term_count(&mock_file_to_term_count);
 
         // then:
         let mut expected_result = HashMap::new();
