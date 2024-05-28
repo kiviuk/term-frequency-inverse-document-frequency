@@ -60,7 +60,7 @@ fn result_dir_entry_to_string(result_dir_entry: Result<DirEntry, Error>) -> Opti
     }
 }
 
-fn get_file_contents(file_paths: &[String]) -> HashMap<FilePath, Option<FileContent>> {
+fn file_path_to_content(file_paths: &[String]) -> HashMap<FilePath, Option<FileContent>> {
     let xml_file_contents: HashMap<FilePath, Option<FileContent>> = file_paths
         .iter()
         .map(|file_path| {
@@ -191,7 +191,7 @@ fn content_from_file(
     }
 }
 
-fn file_to_total_term_count(
+fn file_to_absolut_term_count(
     file_to_count_per_term: &HashMap<FilePath, HashMap<String, usize>>,
 ) -> HashMap<FilePath, usize> {
     let mut totals: HashMap<FilePath, usize> = HashMap::new();
@@ -202,54 +202,55 @@ fn file_to_total_term_count(
     totals
 }
 
-fn file_to_count_per_term(
+fn file_to_absolute_term_frequency(
     file_path_to_content: &HashMap<FilePath, Option<FileContent>>,
 ) -> HashMap<FilePath, HashMap<String, usize>> {
-    let mut term_to_count_per_file: HashMap<String, HashMap<FilePath, usize>> = HashMap::new();
-    let mut file_to_count_per_term: HashMap<FilePath, HashMap<String, usize>> = HashMap::new();
+    // let mut term_to_count_per_file: HashMap<String, HashMap<FilePath, usize>> = HashMap::new();
+    let mut file_to_absolute_term_frequency_map: HashMap<FilePath, HashMap<String, usize>> =
+        HashMap::new();
 
     for file_path in file_path_to_content.keys() {
         let content_form_file: Vec<char> = content_from_file(file_path, file_path_to_content);
         let terms_in_content: Vec<String> = terms_in_content(content_form_file);
         // term_frequency is a HashMap that stores term frequencies for the current file.
         // the values are counts of how many times each term appears in the current file.
-        let mut count_per_term_in_file: HashMap<String, usize> = HashMap::new();
+        let mut absolute_term_frequency_map: HashMap<String, usize> = HashMap::new();
         for term in terms_in_content {
-            let file_to_count: &mut HashMap<FilePath, usize> = term_to_count_per_file
-                .entry(term.to_ascii_uppercase())
+            // let file_to_count: &mut HashMap<FilePath, usize> = term_to_count_per_file
+            //     .entry(term.to_ascii_uppercase())
+            //     .or_default();
+
+            let term_to_count: &mut HashMap<String, usize> = file_to_absolute_term_frequency_map
+                .entry(file_path.clone())
                 .or_default();
 
-            let term_to_count: &mut HashMap<String, usize> =
-                file_to_count_per_term.entry(file_path.clone()).or_default();
-
-            let count: &mut usize = count_per_term_in_file.entry(term.clone()).or_insert(0);
+            let count: &mut usize = absolute_term_frequency_map.entry(term.clone()).or_insert(0);
             *count += 1;
 
             term_to_count.insert(term, *count);
-            file_to_count.insert(file_path.clone(), *count);
+            // file_to_count.insert(file_path.clone(), *count);
         }
     }
-    file_to_count_per_term
+    file_to_absolute_term_frequency_map
 }
 
 // Relative Term Frequency per file calculation
 fn file_to_relative_term_frequency(
-    file_to_count_per_term: &HashMap<FilePath, HashMap<String, usize>>,
-    file_to_total_term_count: &HashMap<FilePath, usize>,
+    file_to_abolut_term_frequency_map: &HashMap<FilePath, HashMap<String, usize>>,
+    file_to_absolut_term_count_map: &HashMap<FilePath, usize>,
 ) -> HashMap<FilePath, HashMap<String, f64>> {
-    let mut file_to_relative_term_frequency: HashMap<FilePath, HashMap<String, f64>> =
+    let mut file_to_relative_term_frequency_map: HashMap<FilePath, HashMap<String, f64>> =
         HashMap::new();
 
-    for (file, term_to_termcount_in_file) in file_to_count_per_term {
-        if !term_to_termcount_in_file.is_empty() {
+    for (file, term_to_absolute_term_frequency_map) in file_to_abolut_term_frequency_map {
+        if !term_to_absolute_term_frequency_map.is_empty() {
             // Note the denominator is simply the total number of terms in document d
-            let total_number_of_terms_in_file: f64 =
-                *file_to_total_term_count.get(file).unwrap() as f64;
+            let absolut_term_count: f64 = *file_to_absolut_term_count_map.get(file).unwrap() as f64;
             // frequency = the raw count of a term in a document, i.e., the number of times that term t occurs in document d
-            for (term, term_count_in_file) in term_to_termcount_in_file {
+            for (term, term_count_in_file) in term_to_absolute_term_frequency_map {
                 let relative_term_frequency: f64 =
-                    (*term_count_in_file as f64) / total_number_of_terms_in_file;
-                file_to_relative_term_frequency
+                    (*term_count_in_file as f64) / absolut_term_count;
+                file_to_relative_term_frequency_map
                     .entry(file.clone())
                     .or_default()
                     .insert(term.clone(), relative_term_frequency);
@@ -257,7 +258,7 @@ fn file_to_relative_term_frequency(
         }
     }
 
-    file_to_relative_term_frequency
+    file_to_relative_term_frequency_map
 }
 
 fn file_to_sorted_terms(
@@ -307,21 +308,21 @@ fn main() {
 
     // Get content from each file
     let file_path_to_content_map: HashMap<FilePath, Option<FileContent>> =
-        get_file_contents(&file_paths);
+        file_path_to_content(&file_paths);
 
     // Count occurrences of each term in each file
-    let file_to_occurences_per_term_map: HashMap<FilePath, HashMap<String, usize>> =
-        file_to_count_per_term(&file_path_to_content_map);
+    let file_to_absolute_term_frequency_map: HashMap<FilePath, HashMap<String, usize>> =
+        file_to_absolute_term_frequency(&file_path_to_content_map);
 
     // Calculate total number of terms for each file
-    let file_to_total_term_count_map: HashMap<FilePath, usize> =
-        file_to_total_term_count(&file_to_occurences_per_term_map);
+    let file_to_absolute_term_count_map: HashMap<FilePath, usize> =
+        file_to_absolut_term_count(&file_to_absolute_term_frequency_map);
 
     // Calculate relative term frequency for each term in each file
     let file_to_relative_term_frequency_map: HashMap<FilePath, HashMap<String, f64>> =
         file_to_relative_term_frequency(
-            &file_to_occurences_per_term_map,
-            &file_to_total_term_count_map,
+            &file_to_absolute_term_frequency_map,
+            &file_to_absolute_term_count_map,
         );
 
     // Sort terms based on their relative frequency
@@ -365,7 +366,7 @@ mod tests {
         );
 
         // when:
-        let result = file_to_count_per_term(&mock_file_contents);
+        let result = file_to_absolute_term_frequency(&mock_file_contents);
 
         // then:
         let mut expected_result = HashMap::new();
@@ -394,7 +395,7 @@ mod tests {
         mock_file_to_term_count.insert(submission_file.clone(), mock_term_counts);
 
         // when:
-        let result = file_to_total_term_count(&mock_file_to_term_count);
+        let result = file_to_absolut_term_count(&mock_file_to_term_count);
 
         // then:
         let mut expected_result = HashMap::new();
