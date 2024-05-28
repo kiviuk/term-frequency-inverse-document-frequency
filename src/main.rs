@@ -215,14 +215,13 @@ fn file_to_absolute_term_frequency(
         // term_frequency is a HashMap that stores term frequencies for the current file.
         // the values are counts of how many times each term appears in the current file.
         let mut absolute_term_frequency_map: HashMap<String, usize> = HashMap::new();
+        let term_to_count: &mut HashMap<String, usize> = file_to_absolute_term_frequency_map
+            .entry(file_path.clone())
+            .or_default();
         for term in terms_in_content {
             // let file_to_count: &mut HashMap<FilePath, usize> = term_to_count_per_file
             //     .entry(term.to_ascii_uppercase())
             //     .or_default();
-
-            let term_to_count: &mut HashMap<String, usize> = file_to_absolute_term_frequency_map
-                .entry(file_path.clone())
-                .or_default();
 
             let count: &mut usize = absolute_term_frequency_map.entry(term.clone()).or_insert(0);
             *count += 1;
