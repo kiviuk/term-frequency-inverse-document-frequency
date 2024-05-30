@@ -1,3 +1,58 @@
+/*
+Search Engines, one of the pioneering and most prevalent applications of the TF-IDF metric, use
+it as part of their core algorithms to match a user's query to potential results. It forms an
+essential part of the process that helps determine which documents are most relevant to a
+specific query.
+
+Here's a more detailed explanation:
+
+1. Tokenization and Text Preprocessing: When a new webpage is encountered by a search engine's
+   crawler, the content gets tokenized (split into words), and preprocessed (lowercased, stemmed,
+   etc). Common words (a, the, is, etc.), called stop words, are often removed as part of the
+   preprocessing step.
+2. Term Frequency (TF) Calculation: Search engines calculate Term Frequency, which measures how
+   frequently a term occurs in a document. If a word occurs often in a document, the TF will be
+   higher. This is based on the assumption that a document talks more about certain topics and the
+   terms associated with that topic will occur more frequently.
+3. Inverse Document Frequency (IDF) Calculation: Next, engines calculate the Inverse Document
+   Frequency for each word in their collection of documents (the web). This calculates how
+   important a word is to understand the context. Words that occur in many documents from the
+   collection are less informative and therefore have less IDF score.
+4. TF-IDF Calculation: Each word in a document will have a TF-IDF score which is a multiplication
+   of TF and IDF. So, words that occur often in a single document but not in many documents in the
+   collection will have a high TF-IDF score.
+5. Query Processing: When a user types a search query, the search engine processes the query in the
+   same way it processes its documents (tokenizing and preprocessing). It then calculates a TF-IDF
+   score for the query words.
+6. When a search query is made, the search engine does not calculate the TF-IDF score for the query
+   words based on a specific document. Instead, it uses the Inverse Document Frequency (IDF) part
+   of the TF-IDF score, which it had pre-calculated for all the words across all documents (webpages)
+   in its index.
+
+Here's a simple explanation of how it works:
+1. Inverse Document Frequency (IDF): This is a measure of how much information a given word
+   provides. IDF is obtained by dividing the total number of documents (N) by the number of
+   documents containing the word (n), and then applying logarithm to the result. This signifies the
+   rareness of a term. IDF(term) = log_e(Total number of documents / Number of documents with term in
+   it)
+2. The IDF value reduces the weight of common words and increases the weight of words that are not
+   common. The IDF values are pre-calculated and stored by the search engine for all words in the
+   documents it had indexed.
+3. When a search query is made, each word in the query is considered as a separate "mini document".
+4. The Term Frequency (TF) of a word in the query is usually 1 (as most words appear only once in the
+   query). For TF-IDF calculation, TF is the term frequency in the query and the IDF is the same as
+   what was calculated previously and stored. Each term in the query would thus have a TF-IDF score
+   which is a product of its Term Frequency (TF) in the query and its pre-calculated Inverse Document
+   Frequency (IDF).
+6. Document Ranking: The search engine then ranks the documents based on the cosine similarity of
+   the TF-IDF vectors of the query and the documents. The cosine similarity measures the cosine of
+   the angle between two vectors. This angle will be smaller for vectors that point roughly in the
+   same direction, meaning that the query and the document share many terms with high TF-IDF weights.
+   The documents are then returned to the user in the order of their relevance.
+7. On-going updates: Search engines constantly update their database, as new webpages are created,
+   old ones are deleted and existing ones updated. So, the TF-IDF calculation is an ongoing process
+in the backend.  score for the query words.
+*/
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 use std::fs::{read_dir, DirEntry, File};
@@ -434,7 +489,7 @@ fn main() {
         }
     }
 
-    term_frequency_inverse_document_frequency(
+    let x: f64 = term_frequency_inverse_document_frequency(
         "is".to_string(),
         Document {
             path: String::from("docs.gl/gl2"),
