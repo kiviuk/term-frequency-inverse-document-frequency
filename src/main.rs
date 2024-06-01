@@ -335,15 +335,15 @@ fn document_to_term_to_tf(
 }
 
 fn document_to_sorted_terms(
-    document_to_relative_term_frequency: &HashMap<Document, HashMap<String, f64>>,
+    document_to_term_to_frequency_map: &HashMap<Document, HashMap<String, f64>>,
 ) -> HashMap<Document, Vec<&String>> {
     let mut document_to_sorted_terms: HashMap<Document, Vec<&String>> = HashMap::new();
 
-    document_to_relative_term_frequency
+    document_to_term_to_frequency_map
         .keys()
         .for_each(|document_name| {
             let term_to_relative_term_frequency: &HashMap<String, f64> =
-                document_to_relative_term_frequency
+                document_to_term_to_frequency_map
                     .get(document_name)
                     .unwrap();
             let mut terms: Vec<&String> = term_to_relative_term_frequency.keys().collect();
@@ -381,57 +381,87 @@ fn document_to_term_to_idf(
     term_to_document_to_count_map: &HashMap<String, HashMap<Document, usize>>,
 ) -> HashMap<Document, HashMap<String, f64>> {
     let number_of_documents = document_to_term_to_count.keys().count();
-    let document_to_term_to_idf_map: HashMap<Document, HashMap<String, f64>> = HashMap::new();
 
-    let number_of_documents = count_unique_documents(term_to_document_to_count_map);
     println!("Number of documents: {}", number_of_documents);
 
-    let mut number_of_documents_with_term = 0;
+    // collect idf for each term
+    let term_to_idf_map: HashMap<String, f64> = term_to_document_to_count_map
+        .keys()
+        .map(|term| {
+            let idf = inverse_document_frequency(
+                number_of_documents,
+                term_to_document_to_count_map,
+                term.clone(),
+            );
+            (term.clone(), idf)
+        })
+        .collect();
 
-    number_of_documents_with_term = document_to_term_to_count
-        .iter()
-        .filter(|(_, term_to_count_map)| !term_to_count_map.is_empty())
-        .count();
+    // associate term idf with each document that contains the term
+    let document_to_term_to_idf_map: HashMap<Document, HashMap<String, f64>> =
+        document_to_term_to_count
+            .iter()
+            .map(|(document, term_to_count_map)| {
+                let filtered_term_to_idf_map: HashMap<String, f64> = term_to_count_map
+                    .iter()
+                    .filter_map(|(term, count)| {
+                        if *count > 0 {
+                            term_to_idf_map.get(term).map(|&idf| (term.clone(), idf))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
 
-    println!(
-        "Number of documents with term: {}",
-        number_of_documents_with_term
-    );
-
-    for (document, term_to_count_map) in document_to_term_to_count {
-        for (term, count) in term_to_count_map {}
-    }
-
-    HashMap::new()
+                (document.clone(), filtered_term_to_idf_map)
+            })
+            .collect();
+    document_to_term_to_idf_map
 }
 
 fn inverse_document_frequency(
+    number_of_documents: usize,
     term_to_document_to_count_map: &HashMap<String, HashMap<Document, usize>>,
     term: String,
 ) -> f64 {
     let term: String = term.to_uppercase();
 
-    let number_of_documents = count_unique_documents(term_to_document_to_count_map);
     println!("Number of documents: {}", number_of_documents);
 
-    let mut number_of_documents_with_term: usize = 0;
-
-    if let Some(document_frequency_map) = term_to_document_to_count_map.get(&term) {
-        number_of_documents_with_term = document_frequency_map
-            .iter()
-            .filter(|(_, &count)| count > 0)
-            .count();
-    }
     println!(
-        "Number of documents with term: {} {}",
-        term, number_of_documents_with_term
+        "Term to document to count: {:?}",
+        term_to_document_to_count_map
     );
 
-    let idf: f64 =
-        (number_of_documents as f64 / (1.0 + number_of_documents_with_term as f64)).log10();
+    let number_of_documents_with_term =
+        number_of_documents_with_term(term_to_document_to_count_map, &term);
 
-    println!("IDF inverse_document_frequency: {}", idf);
+    let idf: f64 = if number_of_documents_with_term != 0 {
+        (number_of_documents as f64 / (0.0 + number_of_documents_with_term as f64)).log10()
+    } else {
+        0f64
+    };
+
+    println!(
+        "IDF inverse_document_frequency: term - {} - {} = {}",
+        term, number_of_documents_with_term, idf
+    );
+
     idf
+}
+
+fn number_of_documents_with_term(
+    term_to_document_to_count_map: &HashMap<String, HashMap<Document, usize>>,
+    term: &String,
+) -> usize {
+    if let Some(document_frequency_map) = term_to_document_to_count_map.get(term) {
+        document_frequency_map
+            .iter()
+            .filter(|(_, &count)| count > 0)
+            .count()
+    } else {
+        0
+    }
 }
 
 fn term_frequency_inverse_document_frequency(
@@ -445,7 +475,14 @@ fn term_frequency_inverse_document_frequency(
         document_to_term_to_count_map,
         document_to_total_term_count_map,
     );
-    let idf: f64 = inverse_document_frequency(&term_to_document_to_count_map, term.clone());
+
+    let number_of_documents = document_to_term_to_count_map.keys().count();
+
+    let idf: f64 = inverse_document_frequency(
+        number_of_documents,
+        &term_to_document_to_count_map,
+        term.clone(),
+    );
 
     println!("TF map: {:?}", tf_map);
     println!("IDF: {}", idf);
@@ -482,7 +519,7 @@ fn main() {
         document_path_to_content(&document_paths);
 
     // Count occurrences of each term in each document
-    let (document_to_term_to_count_map, term_to_document_to_count_map): (
+    let (document_to_term_to_count_map, _): (
         HashMap<Document, HashMap<String, usize>>,
         HashMap<String, HashMap<Document, usize>>,
     ) = document_and_term_to_count(&document_to_content_map);
@@ -653,11 +690,11 @@ mod tests {
 
     #[test]
     fn test_count_unique_documents() {
-        let document_1 = Document {
+        let document_1: Document = Document {
             path: String::from("document_1.txt"),
         };
 
-        let document_2 = Document {
+        let document_2: Document = Document {
             path: String::from("document_2.txt"),
         };
 
@@ -693,8 +730,10 @@ mod tests {
             path: String::from("document_2.txt"),
         };
 
+        let number_of_documents: usize = 2;
+
         // given:
-        let mut term_to_document_frequency_map: HashMap<String, HashMap<Document, usize>> =
+        let mut term_to_document_to_count_map: HashMap<String, HashMap<Document, usize>> =
             HashMap::new();
 
         let mut term1_document_to_frequency_map: HashMap<Document, usize> = HashMap::new();
@@ -713,27 +752,154 @@ mod tests {
         let term1 = String::from("TERM1");
         let term2 = String::from("TERM2");
         let term3 = String::from("TERM3");
-        term_to_document_frequency_map.insert(term1.clone(), term1_document_to_frequency_map);
-        term_to_document_frequency_map.insert(term2.clone(), term2_document_to_frequency_map);
-        term_to_document_frequency_map.insert(term3.clone(), term3_document_to_frequency_map);
+        term_to_document_to_count_map.insert(term1.clone(), term1_document_to_frequency_map);
+        term_to_document_to_count_map.insert(term2.clone(), term2_document_to_frequency_map);
+        term_to_document_to_count_map.insert(term3.clone(), term3_document_to_frequency_map);
 
         // when:
-        //     (number_of_documents as f64) / (1.0 + number_of_documents_with_term as f64).log10()
-        //     [2 / (1.0 + 2)].log10() = [2 / 3.0)].log10()
-        let idf_term_1: f64 = inverse_document_frequency(&term_to_document_frequency_map, term1);
+        //     [number_of_documents as f64 / number_of_documents_with_term as f64].log10()
+        //     [2 / (2)].log10() = [1.0].log10()
+        let idf_term_1: f64 =
+            inverse_document_frequency(number_of_documents, &term_to_document_to_count_map, term1);
 
-        //     (number_of_documents as f64) / (1.0 + number_of_documents_with_term as f64).log10()
-        //     [2 / (1.0 + 1)].log10() = [2 / 2.0)].log10()
-        let idf_term_2: f64 = inverse_document_frequency(&term_to_document_frequency_map, term2);
+        //     [2 / (1)].log10() = [2.0].log10()
+        let idf_term_2: f64 =
+            inverse_document_frequency(number_of_documents, &term_to_document_to_count_map, term2);
 
-        //     (number_of_documents as f64) / (1.0 + number_of_documents_with_term as f64).log10()
-        //     [2 / (1.0 + 1)].log10() = [2 / 2.0)].log10()
-        let idf_term_3: f64 = inverse_document_frequency(&term_to_document_frequency_map, term3);
+        //     [2 / (1)].log10() = [2.0].log10()
+        let idf_term_3: f64 =
+            inverse_document_frequency(number_of_documents, &term_to_document_to_count_map, term3);
 
         // then:
-        assert_eq!(idf_term_1, (2.0 / 3f64).log10());
-        assert_eq!(idf_term_2, (2.0 / 2f64).log10());
-        assert_eq!(idf_term_3, (2.0 / 2f64).log10());
+        assert_eq!(idf_term_1, (2.0 / 2f64).log10()); // 0
+        assert_eq!(idf_term_2, (2.0 / 1f64).log10()); // 0.30102999
+        assert_eq!(idf_term_3, (2.0 / 1f64).log10()); // 0.30102999
+    }
+
+    #[test]
+    fn test_document_to_term_to_idf() {
+        let doc1: DocumentContent = DocumentContent {
+            content: "the cats are in the house".to_string(),
+        };
+        let doc2: DocumentContent = DocumentContent {
+            content: "the dogs are in the house and outside".to_string(),
+        };
+        let doc3: DocumentContent = DocumentContent {
+            content: "the cats and dogs are friends".to_string(),
+        };
+
+        let documents: [(Document, DocumentContent); 3] = [
+            (
+                Document {
+                    path: "Doc1".to_string(),
+                },
+                doc1,
+            ),
+            (
+                Document {
+                    path: "Doc2".to_string(),
+                },
+                doc2,
+            ),
+            (
+                Document {
+                    path: "Doc3".to_string(),
+                },
+                doc3,
+            ),
+        ];
+
+        let mut document_to_term_to_count_map: HashMap<Document, HashMap<String, usize>> =
+            hashmap! {};
+        let mut term_to_document_to_count_map: HashMap<String, HashMap<Document, usize>> =
+            hashmap! {};
+
+        for (document, doc_content) in documents.iter() {
+            let words: Vec<&str> = doc_content.content.split_whitespace().collect();
+
+            let mut term_to_count_map: HashMap<String, usize> = HashMap::new();
+            for word in words {
+                *term_to_count_map.entry(word.to_string()).or_insert(0) += 1;
+            }
+
+            document_to_term_to_count_map.insert(document.clone(), term_to_count_map.clone());
+
+            for (term, count) in term_to_count_map.iter() {
+                let entry: &mut HashMap<Document, usize> = term_to_document_to_count_map
+                    .entry(term.clone())
+                    .or_insert(HashMap::new());
+
+                let new_count = entry.get(document).unwrap_or(&0) + *count;
+
+                entry.insert(document.clone(), new_count);
+            }
+        }
+
+        // when:
+        let result: HashMap<Document, HashMap<String, f64>> = document_to_term_to_idf(
+            &document_to_term_to_count_map,
+            &term_to_document_to_count_map,
+        );
+
+        // println!("######## {:?}", document_to_term_to_count_map);
+        // println!("XXXXXX {:?}", term_to_document_to_count_map);
+        println!("----> ######## {:?}", result);
+    }
+
+    #[test]
+    fn test_number_of_documents_with_term() {
+        let term_to_document_to_count_map: HashMap<String, HashMap<Document, usize>> = hashmap! {
+            "and".to_string() => hashmap!{
+                Document { path: "Doc2".to_string() } => 1,
+                Document { path: "Doc3".to_string() } => 1,
+            },
+            "dogs".to_string() => hashmap!{
+                Document { path: "Doc2".to_string() } => 1,
+                Document { path: "Doc3".to_string() } => 1,
+            },
+            "outside".to_string() => hashmap!{
+                Document { path: "Doc2".to_string() } => 1,
+            },
+            "in".to_string() => hashmap!{
+                Document { path: "Doc1".to_string() } => 1,
+                Document { path: "Doc2".to_string() } => 1,
+            },
+            "cats".to_string() => hashmap!{
+                Document { path: "Doc1".to_string() } => 1,
+                Document { path: "Doc3".to_string() } => 1,
+            },
+            "the".to_string() => hashmap!{
+                Document { path: "Doc1".to_string() } => 2,
+                Document { path: "Doc2".to_string() } => 2,
+                Document { path: "Doc3".to_string() } => 1,
+            },
+            "house".to_string() => hashmap!{
+                Document { path: "Doc1".to_string() } => 1,
+                Document { path: "Doc2".to_string() } => 1,
+            },
+            "friends".to_string() => hashmap!{
+                Document { path: "Doc3".to_string() } => 1,
+            },
+            "are".to_string() => hashmap!{
+                Document { path: "Doc1".to_string() } => 1,
+                Document { path: "Doc2".to_string() } => 1,
+                Document { path: "Doc3".to_string() } => 1,
+            },
+        };
+
+        let result_the: usize =
+            number_of_documents_with_term(&term_to_document_to_count_map, &"the".to_string());
+        let result_and: usize =
+            number_of_documents_with_term(&term_to_document_to_count_map, &"and".to_string());
+        let result_are: usize =
+            number_of_documents_with_term(&term_to_document_to_count_map, &"are".to_string());
+        let result_unknown: usize =
+            number_of_documents_with_term(&term_to_document_to_count_map, &"unknown".to_string());
+
+        assert_eq!(result_the, 3);
+        assert_eq!(result_and, 2);
+        assert_eq!(result_are, 3);
+        assert_eq!(result_unknown, 0);
     }
 
     #[test]
@@ -746,9 +912,6 @@ mod tests {
         let term_1: String = String::from("TERM_1");
 
         let term_count_map: HashMap<String, usize> = hashmap! { term_1.clone() => 1 };
-
-        let document_to_term_to_count_map: HashMap<Document, usize> =
-            hashmap! { document_1.clone() => 1 };
 
         let document_to_total_term_count_map: HashMap<Document, usize> =
             hashmap! { document_1.clone() => 1 };
@@ -770,8 +933,8 @@ mod tests {
             term_to_document_to_count_map,
         );
 
-        // (number_of_documents as f64 / (1.0 + number_of_documents_with_term as f64)).log10()
-        let idf: f64 = (1.0 / (1.0 + 1f64)).log10();
+        // (number_of_documents as f64 / (number_of_documents_with_term as f64)).log10()
+        let idf: f64 = (1.0 / 1f64).log10();
 
         //     // numerator = the number of times that term t occurs in document d
         //     // denominator = the total number of terms in document d
@@ -808,7 +971,7 @@ mod tests {
         };
 
         // Count occurrences of each term in each document
-        let (document_to_term_to_count_map, term_to_document_to_count_map): (
+        let (document_to_term_to_count_map, _): (
             HashMap<Document, HashMap<String, usize>>,
             HashMap<String, HashMap<Document, usize>>,
         ) = document_and_term_to_count(&document_to_content);
