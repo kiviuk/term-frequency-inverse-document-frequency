@@ -287,13 +287,13 @@ fn document_and_term_to_count(
         for term in terms_in_content {
             let document_to_count_entry: &mut HashMap<Document, usize> =
                 _term_to_document_to_count_map
-                    .entry(term.to_uppercase())
+                    .entry(term.clone())
                     .or_default();
 
             let count: &mut usize = term_counting_map.entry(term.clone()).or_insert(0);
             *count += 1;
 
-            term_to_count_entry.insert(term.to_uppercase(), *count);
+            term_to_count_entry.insert(term, *count);
             document_to_count_entry.insert(document_path.clone(), *count);
         }
     }
@@ -424,8 +424,6 @@ fn inverse_document_frequency(
     term_to_document_to_count_map: &HashMap<String, HashMap<Document, usize>>,
     term: String,
 ) -> f64 {
-    let term: String = term.to_uppercase();
-
     println!("Number of documents: {}", number_of_documents);
 
     println!(
@@ -887,19 +885,19 @@ mod tests {
             },
         };
 
-        let result_the: usize =
+        let the: usize =
             number_of_documents_with_term(&term_to_document_to_count_map, &"the".to_string());
-        let result_and: usize =
+        let and: usize =
             number_of_documents_with_term(&term_to_document_to_count_map, &"and".to_string());
-        let result_are: usize =
+        let are: usize =
             number_of_documents_with_term(&term_to_document_to_count_map, &"are".to_string());
-        let result_unknown: usize =
+        let unknown: usize =
             number_of_documents_with_term(&term_to_document_to_count_map, &"unknown".to_string());
 
-        assert_eq!(result_the, 3);
-        assert_eq!(result_and, 2);
-        assert_eq!(result_are, 3);
-        assert_eq!(result_unknown, 0);
+        assert_eq!(the, 3);
+        assert_eq!(and, 2);
+        assert_eq!(are, 3);
+        assert_eq!(unknown, 0);
     }
 
     #[test]
@@ -1143,3 +1141,4 @@ mod tests {
         );
     }
 }
+
