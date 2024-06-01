@@ -263,12 +263,12 @@ fn document_to_count(
     totals
 }
 
+type DocToTermCount = HashMap<Document, HashMap<String, usize>>;
+type TermToDocCount = HashMap<String, HashMap<Document, usize>>;
+
 fn document_and_term_to_count(
     document_to_content: &HashMap<Document, Option<DocumentContent>>,
-) -> (
-    HashMap<Document, HashMap<String, usize>>,
-    HashMap<String, HashMap<Document, usize>>,
-) {
+) -> (DocToTermCount, TermToDocCount) {
     let mut _document_to_term_to_count_map: HashMap<Document, HashMap<String, usize>> =
         HashMap::new();
     let mut _term_to_document_to_count_map: HashMap<String, HashMap<Document, usize>> =
@@ -382,7 +382,7 @@ fn document_to_term_to_idf(
 ) -> HashMap<Document, HashMap<String, f64>> {
     let number_of_documents = document_to_term_to_count.keys().count();
 
-    println!("Number of documents: {}", number_of_documents);
+    // println!("Number of documents: {}", number_of_documents);
 
     // collect idf for each term
     let term_to_idf_map: HashMap<String, f64> = term_to_document_to_count_map
@@ -482,13 +482,13 @@ fn term_frequency_inverse_document_frequency(
         term.clone(),
     );
 
-    println!("TF map: {:?}", tf_map);
-    println!("IDF: {}", idf);
+    // println!("TF map: {:?}", tf_map);
+    // println!("IDF: {}", idf);
 
     let tf: &f64 = tf_map.get(&document).unwrap().get(&term).unwrap();
 
-    println!("TF: {}", tf);
-    println!("TF * IDF: {}", tf * idf);
+    // println!("TF: {}", tf);
+    // println!("TF * IDF: {}", tf * idf);
 
     tf * idf
 }
@@ -563,8 +563,10 @@ mod tests {
     use super::inverse_document_frequency;
     use super::number_of_documents_with_term;
     use super::term_frequency_inverse_document_frequency;
+    use super::DocToTermCount;
     use super::Document;
     use super::DocumentContent;
+    use super::TermToDocCount;
     use pretty_assertions::assert_eq;
     use std::collections::HashMap;
 
@@ -584,10 +586,8 @@ mod tests {
         );
 
         // when:
-        let (document_to_term_to_count_map, _): (
-            HashMap<Document, HashMap<String, usize>>,
-            HashMap<String, HashMap<Document, usize>>,
-        ) = document_and_term_to_count(&mock_document_contents);
+        let (document_to_term_to_count_map, _): (DocToTermCount, TermToDocCount) =
+            document_and_term_to_count(&mock_document_contents);
 
         // then:
         let mut expected_result: HashMap<Document, HashMap<String, usize>> = HashMap::new();
@@ -1044,10 +1044,8 @@ mod tests {
         };
 
         // Count occurrences of each term in each document
-        let (document_to_term_to_count_map, _): (
-            HashMap<Document, HashMap<String, usize>>,
-            HashMap<String, HashMap<Document, usize>>,
-        ) = document_and_term_to_count(&document_to_content);
+        let (document_to_term_to_count_map, _): (DocToTermCount, TermToDocCount) =
+            document_and_term_to_count(&document_to_content);
 
         // Calculate total number of terms for each document
         let document_to_total_term_count_map: HashMap<Document, usize> =
