@@ -60,6 +60,8 @@ use std::io;
 use std::io::{BufReader, Error, ErrorKind};
 use xml::reader::EventReader;
 use xml::reader::XmlEvent as ReaderEvent;
+#[macro_use]
+extern crate maplit;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct Document {
@@ -251,18 +253,18 @@ fn content_from_document(
 }
 
 fn document_to_count(
-    document_to_count_per_term: &HashMap<Document, HashMap<String, usize>>,
+    document_to_term_to_count_map: &HashMap<Document, HashMap<String, usize>>,
 ) -> HashMap<Document, usize> {
     let mut totals: HashMap<Document, usize> = HashMap::new();
-    for (document_name, term_to_count) in document_to_count_per_term {
+    for (document_name, term_to_count) in document_to_term_to_count_map {
         let term_count: usize = term_to_count.values().sum();
         totals.insert(document_name.clone(), term_count);
     }
     totals
 }
 
-fn document_or_term_to_count(
-    document_path_to_content: &HashMap<Document, Option<DocumentContent>>,
+fn document_and_term_to_count(
+    document_to_content: &HashMap<Document, Option<DocumentContent>>,
 ) -> (
     HashMap<Document, HashMap<String, usize>>,
     HashMap<String, HashMap<Document, usize>>,
@@ -272,9 +274,9 @@ fn document_or_term_to_count(
     let mut _term_to_document_to_count_map: HashMap<String, HashMap<Document, usize>> =
         HashMap::new();
 
-    for document_path in document_path_to_content.keys() {
+    for document_path in document_to_content.keys() {
         let content_form_document: Vec<char> =
-            content_from_document(document_path, document_path_to_content);
+            content_from_document(document_path, document_to_content);
         let terms_in_content: Vec<String> = terms_in_content(content_form_document);
         // term_frequency is a HashMap that stores term frequencies for the current document.
         // the values are counts of how many times each term appears in the current document.
@@ -304,12 +306,12 @@ fn document_or_term_to_count(
 // Term frequency, tf(t,d), is the relative frequency of term t within document d,
 // i.e., the number of times that term t appears in document d divided by the total number of terms in document d
 fn document_to_term_to_tf(
-    document_to_term_count_map: &HashMap<Document, HashMap<String, usize>>,
+    document_to_term_to_count_map: &HashMap<Document, HashMap<String, usize>>,
     document_to_total_term_count_map: &HashMap<Document, usize>,
 ) -> HashMap<Document, HashMap<String, f64>> {
     let mut document_to_term_to_tf_map: HashMap<Document, HashMap<String, f64>> = HashMap::new();
 
-    for (document, term_to_term_count_map) in document_to_term_count_map {
+    for (document, term_to_term_count_map) in document_to_term_to_count_map {
         if !term_to_term_count_map.is_empty() {
             // the total number of terms in document
             let total_term_count_in_document: f64 =
@@ -361,11 +363,11 @@ fn document_to_sorted_terms(
 }
 
 fn count_unique_documents(
-    term_to_document_frequency_map: &HashMap<String, HashMap<Document, usize>>,
+    term_to_document_to_count_map: &HashMap<String, HashMap<Document, usize>>,
 ) -> usize {
     let mut unique_paths = HashSet::new();
 
-    for (_, inner_map) in term_to_document_frequency_map.iter() {
+    for (_, inner_map) in term_to_document_to_count_map.iter() {
         for (document_path, _) in inner_map.iter() {
             unique_paths.insert(document_path);
         }
@@ -374,18 +376,47 @@ fn count_unique_documents(
     unique_paths.len()
 }
 
+fn document_to_term_to_idf(
+    document_to_term_to_count: &HashMap<Document, HashMap<String, usize>>,
+    term_to_document_to_count_map: &HashMap<String, HashMap<Document, usize>>,
+) -> HashMap<Document, HashMap<String, f64>> {
+    let number_of_documents = document_to_term_to_count.keys().count();
+    let document_to_term_to_idf_map: HashMap<Document, HashMap<String, f64>> = HashMap::new();
+
+    let number_of_documents = count_unique_documents(term_to_document_to_count_map);
+    println!("Number of documents: {}", number_of_documents);
+
+    let mut number_of_documents_with_term = 0;
+
+    number_of_documents_with_term = document_to_term_to_count
+        .iter()
+        .filter(|(_, term_to_count_map)| !term_to_count_map.is_empty())
+        .count();
+
+    println!(
+        "Number of documents with term: {}",
+        number_of_documents_with_term
+    );
+
+    for (document, term_to_count_map) in document_to_term_to_count {
+        for (term, count) in term_to_count_map {}
+    }
+
+    HashMap::new()
+}
+
 fn inverse_document_frequency(
-    term_to_document_frequency_map: &HashMap<String, HashMap<Document, usize>>,
+    term_to_document_to_count_map: &HashMap<String, HashMap<Document, usize>>,
     term: String,
 ) -> f64 {
     let term: String = term.to_uppercase();
 
-    let number_of_documents = count_unique_documents(term_to_document_frequency_map);
+    let number_of_documents = count_unique_documents(term_to_document_to_count_map);
     println!("Number of documents: {}", number_of_documents);
 
     let mut number_of_documents_with_term: usize = 0;
 
-    if let Some(document_frequency_map) = term_to_document_frequency_map.get(&term) {
+    if let Some(document_frequency_map) = term_to_document_to_count_map.get(&term) {
         number_of_documents_with_term = document_frequency_map
             .iter()
             .filter(|(_, &count)| count > 0)
@@ -406,15 +437,15 @@ fn inverse_document_frequency(
 fn term_frequency_inverse_document_frequency(
     term: String,
     document: Document,
-    document_to_abolut_term_frequency_map: &HashMap<Document, HashMap<String, usize>>,
-    document_to_absolut_term_count_map: &HashMap<Document, usize>,
-    term_to_document_frequency_map: HashMap<String, HashMap<Document, usize>>,
+    document_to_term_to_count_map: &HashMap<Document, HashMap<String, usize>>,
+    document_to_total_term_count_map: &HashMap<Document, usize>,
+    term_to_document_to_count_map: HashMap<String, HashMap<Document, usize>>,
 ) -> f64 {
     let tf_map: HashMap<Document, HashMap<String, f64>> = document_to_term_to_tf(
-        document_to_abolut_term_frequency_map,
-        document_to_absolut_term_count_map,
+        document_to_term_to_count_map,
+        document_to_total_term_count_map,
     );
-    let idf: f64 = inverse_document_frequency(&term_to_document_frequency_map, term.clone());
+    let idf: f64 = inverse_document_frequency(&term_to_document_to_count_map, term.clone());
 
     println!("TF map: {:?}", tf_map);
     println!("IDF: {}", idf);
@@ -454,7 +485,7 @@ fn main() {
     let (document_to_term_to_count_map, term_to_document_to_count_map): (
         HashMap<Document, HashMap<String, usize>>,
         HashMap<String, HashMap<Document, usize>>,
-    ) = document_or_term_to_count(&document_to_content_map);
+    ) = document_and_term_to_count(&document_to_content_map);
 
     // Calculate total number of terms for each document
     let document_to_count_map: HashMap<Document, usize> =
@@ -509,7 +540,7 @@ mod tests {
         let (document_to_term_to_count_map, _): (
             HashMap<Document, HashMap<String, usize>>,
             HashMap<String, HashMap<Document, usize>>,
-        ) = document_or_term_to_count(&mock_document_contents);
+        ) = document_and_term_to_count(&mock_document_contents);
 
         // then:
         let mut expected_result: HashMap<Document, HashMap<String, usize>> = HashMap::new();
@@ -712,31 +743,31 @@ mod tests {
         };
 
         // given:
-        let term_1 = String::from("TERM_1");
+        let term_1: String = String::from("TERM_1");
 
-        let mut term_frequency_map: HashMap<String, usize> = HashMap::new();
-        let mut document_to_term_count_map: HashMap<Document, usize> = HashMap::new();
+        let term_count_map: HashMap<String, usize> = hashmap! { term_1.clone() => 1 };
 
-        let mut document_to_abolute_term_count_map: HashMap<Document, usize> = HashMap::new();
-        let mut document_to_term_frequency_map: HashMap<Document, HashMap<String, usize>> =
-            HashMap::new();
-        let mut term_to_document_frequency_map: HashMap<String, HashMap<Document, usize>> =
-            HashMap::new();
+        let document_to_term_to_count_map: HashMap<Document, usize> =
+            hashmap! { document_1.clone() => 1 };
 
-        term_frequency_map.insert(term_1.clone(), 1);
-        document_to_abolute_term_count_map.insert(document_1.clone(), 1);
-        document_to_term_frequency_map.insert(document_1.clone(), term_frequency_map);
+        let document_to_total_term_count_map: HashMap<Document, usize> =
+            hashmap! { document_1.clone() => 1 };
 
-        document_to_term_count_map.insert(document_1.clone(), 1);
-        term_to_document_frequency_map.insert(term_1.clone(), document_to_term_count_map);
+        let document_to_term_to_count_map: HashMap<Document, HashMap<String, usize>> =
+            hashmap! { document_1.clone() => term_count_map };
+
+        let document_to_count_map: HashMap<Document, usize> = hashmap! { document_1.clone() => 1 };
+
+        let term_to_document_to_count_map: HashMap<String, HashMap<Document, usize>> =
+            hashmap! { term_1.clone() => document_to_count_map };
 
         // when:
         let result: f64 = term_frequency_inverse_document_frequency(
             term_1.clone(),
             document_1.clone(),
-            &document_to_term_frequency_map,
-            &document_to_abolute_term_count_map,
-            term_to_document_frequency_map,
+            &document_to_term_to_count_map,
+            &document_to_total_term_count_map,
+            term_to_document_to_count_map,
         );
 
         // (number_of_documents as f64 / (1.0 + number_of_documents_with_term as f64)).log10()
@@ -764,40 +795,34 @@ mod tests {
             path: String::from("document_3.txt"),
         };
 
-        // given:
-        let mut mock_document_contents: HashMap<Document, Option<DocumentContent>> = HashMap::new();
-        mock_document_contents.insert(
-            doc_1.clone(),
-            Some(DocumentContent {
+        let document_to_content: HashMap<Document, Option<DocumentContent>> = hashmap! {
+            doc_1.clone() => Some(DocumentContent {
                 content: String::from("the cats are in the house"),
             }),
-        );
-        mock_document_contents.insert(
-            doc_2.clone(),
-            Some(DocumentContent {
+            doc_2.clone() => Some(DocumentContent {
                 content: String::from("the dogs are in the house and outside"),
             }),
-        );
-        mock_document_contents.insert(
-            doc_3.clone(),
-            Some(DocumentContent {
+            doc_3.clone() => Some(DocumentContent {
                 content: String::from("the cats and dogs are friends"),
             }),
-        );
+        };
 
         // Count occurrences of each term in each document
         let (document_to_term_to_count_map, term_to_document_to_count_map): (
             HashMap<Document, HashMap<String, usize>>,
             HashMap<String, HashMap<Document, usize>>,
-        ) = document_or_term_to_count(&mock_document_contents);
+        ) = document_and_term_to_count(&document_to_content);
 
         // Calculate total number of terms for each document
-        let document_to_count_map: HashMap<Document, usize> =
+        let document_to_total_term_count_map: HashMap<Document, usize> =
             document_to_count(&document_to_term_to_count_map);
 
         // Calculate term frequency for each term in each document
         let document_to_term_to_tf_map: HashMap<Document, HashMap<String, f64>> =
-            document_to_term_to_tf(&document_to_term_to_count_map, &document_to_count_map);
+            document_to_term_to_tf(
+                &document_to_term_to_count_map,
+                &document_to_total_term_count_map,
+            );
 
         println!(
             "DOC1: {:?}",
@@ -810,6 +835,148 @@ mod tests {
         println!(
             "DOC3: {:?}",
             document_to_term_to_tf_map.get(&doc_3).unwrap()
+        );
+
+        // DOC1
+        assert_eq!(
+            *document_to_term_to_tf_map
+                .get(&doc_1)
+                .unwrap()
+                .get("THE")
+                .unwrap(),
+            2f64 / 6f64
+        );
+        assert_eq!(
+            *document_to_term_to_tf_map
+                .get(&doc_1)
+                .unwrap()
+                .get("CATS")
+                .unwrap(),
+            1f64 / 6f64
+        );
+        assert_eq!(
+            *document_to_term_to_tf_map
+                .get(&doc_1)
+                .unwrap()
+                .get("ARE")
+                .unwrap(),
+            1f64 / 6f64
+        );
+        assert_eq!(
+            *document_to_term_to_tf_map
+                .get(&doc_1)
+                .unwrap()
+                .get("IN")
+                .unwrap(),
+            1f64 / 6f64
+        );
+        assert_eq!(
+            *document_to_term_to_tf_map
+                .get(&doc_1)
+                .unwrap()
+                .get("HOUSE")
+                .unwrap(),
+            1f64 / 6f64
+        );
+
+        // DOC2
+        assert_eq!(
+            *document_to_term_to_tf_map
+                .get(&doc_2)
+                .unwrap()
+                .get("THE")
+                .unwrap(),
+            2f64 / 8f64
+        );
+        assert_eq!(
+            *document_to_term_to_tf_map
+                .get(&doc_2)
+                .unwrap()
+                .get("DOGS")
+                .unwrap(),
+            1f64 / 8f64
+        );
+        assert_eq!(
+            *document_to_term_to_tf_map
+                .get(&doc_2)
+                .unwrap()
+                .get("ARE")
+                .unwrap(),
+            1f64 / 8f64
+        );
+        assert_eq!(
+            *document_to_term_to_tf_map
+                .get(&doc_2)
+                .unwrap()
+                .get("IN")
+                .unwrap(),
+            1f64 / 8f64
+        );
+        assert_eq!(
+            *document_to_term_to_tf_map
+                .get(&doc_2)
+                .unwrap()
+                .get("HOUSE")
+                .unwrap(),
+            1f64 / 8f64
+        );
+        assert_eq!(
+            *document_to_term_to_tf_map
+                .get(&doc_2)
+                .unwrap()
+                .get("AND")
+                .unwrap(),
+            1f64 / 8f64
+        );
+        assert_eq!(
+            *document_to_term_to_tf_map
+                .get(&doc_2)
+                .unwrap()
+                .get("OUTSIDE")
+                .unwrap(),
+            1f64 / 8f64
+        );
+
+        // DOC3
+        assert_eq!(
+            *document_to_term_to_tf_map
+                .get(&doc_3)
+                .unwrap()
+                .get("THE")
+                .unwrap(),
+            1f64 / 6f64
+        );
+        assert_eq!(
+            *document_to_term_to_tf_map
+                .get(&doc_3)
+                .unwrap()
+                .get("DOGS")
+                .unwrap(),
+            1f64 / 6f64
+        );
+        assert_eq!(
+            *document_to_term_to_tf_map
+                .get(&doc_3)
+                .unwrap()
+                .get("AND")
+                .unwrap(),
+            1f64 / 6f64
+        );
+        assert_eq!(
+            *document_to_term_to_tf_map
+                .get(&doc_3)
+                .unwrap()
+                .get("CATS")
+                .unwrap(),
+            1f64 / 6f64
+        );
+        assert_eq!(
+            *document_to_term_to_tf_map
+                .get(&doc_3)
+                .unwrap()
+                .get("FRIENDS")
+                .unwrap(),
+            1f64 / 6f64
         );
     }
 }
