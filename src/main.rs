@@ -63,7 +63,7 @@ use xml::reader::XmlEvent as ReaderEvent;
 #[macro_use]
 extern crate maplit;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Ord, PartialOrd, Debug, Clone, PartialEq, Eq, Hash)]
 struct Document {
     pub path: String,
 }
@@ -424,12 +424,12 @@ fn inverse_document_frequency(
     term_to_document_to_count_map: &HashMap<String, HashMap<Document, usize>>,
     term: String,
 ) -> f64 {
-    println!("Number of documents: {}", number_of_documents);
+    // println!("Number of documents: {}", number_of_documents);
 
-    println!(
-        "Term to document to count: {:?}",
-        term_to_document_to_count_map
-    );
+    // println!(
+    //     "Term to document to count: {:?}",
+    //     term_to_document_to_count_map
+    // );
 
     let number_of_documents_with_term =
         number_of_documents_with_term(term_to_document_to_count_map, &term);
@@ -440,10 +440,10 @@ fn inverse_document_frequency(
         0f64
     };
 
-    println!(
-        "IDF inverse_document_frequency: term - {} - {} = {}",
-        term, number_of_documents_with_term, idf
-    );
+    // println!(
+    //     "IDF inverse_document_frequency: term - {} - {} = {}",
+    //     term, number_of_documents_with_term, idf
+    // );
 
     idf
 }
@@ -554,7 +554,19 @@ fn main() {
 #[cfg(test)]
 mod tests {
 
-    use super::*;
+    use super::count_unique_documents;
+    use super::document_and_term_to_count;
+    use super::document_to_count;
+    use super::document_to_sorted_terms;
+    use super::document_to_term_to_idf;
+    use super::document_to_term_to_tf;
+    use super::inverse_document_frequency;
+    use super::number_of_documents_with_term;
+    use super::term_frequency_inverse_document_frequency;
+    use super::Document;
+    use super::DocumentContent;
+    use pretty_assertions::assert_eq;
+    use std::collections::HashMap;
 
     #[test]
     fn test_document_or_term_to_count() {
@@ -580,9 +592,9 @@ mod tests {
         // then:
         let mut expected_result: HashMap<Document, HashMap<String, usize>> = HashMap::new();
         let mut term_count: HashMap<String, usize> = HashMap::new();
-        term_count.insert(String::from("TEST"), 1);
-        term_count.insert(String::from("DOCUMENT"), 1);
-        term_count.insert(String::from("CONTENT"), 1);
+        term_count.insert(String::from("test"), 1);
+        term_count.insert(String::from("document"), 1);
+        term_count.insert(String::from("content"), 1);
         expected_result.insert(submission_document, term_count);
 
         assert_eq!(document_to_term_to_count_map, expected_result);
@@ -825,7 +837,7 @@ mod tests {
             for (term, count) in term_to_count_map.iter() {
                 let entry: &mut HashMap<Document, usize> = term_to_document_to_count_map
                     .entry(term.clone())
-                    .or_insert(HashMap::new());
+                    .or_default();
 
                 let new_count = entry.get(document).unwrap_or(&0) + *count;
 
@@ -833,15 +845,78 @@ mod tests {
             }
         }
 
+        let doc1 = Document {
+            path: "Doc1".to_string(),
+        };
+        let doc2 = Document {
+            path: "Doc2".to_string(),
+        };
+        let doc3 = Document {
+            path: "Doc3".to_string(),
+        };
+
+        let doc1_map = hashmap! {
+            "cats".to_string() => 0.17609125905568124,
+            "the".to_string() => 0.0,
+            "in".to_string() => 0.17609125905568124,
+            "house".to_string() => 0.17609125905568124,
+            "are".to_string() => 0.0,
+        };
+
+        let doc2_map = hashmap! {
+            "dogs".to_string() => 0.17609125905568124,
+            "and".to_string() => 0.17609125905568124,
+            "are".to_string() => 0.0,
+            "in".to_string() => 0.17609125905568124,
+            "the".to_string() => 0.0,
+            "house".to_string() => 0.17609125905568124,
+            "outside".to_string() => 0.47712125471966244,
+        };
+
+        let doc3_map = hashmap! {
+            "cats".to_string() => 0.17609125905568124,
+            "and".to_string() => 0.17609125905568124,
+            "the".to_string() => 0.0,
+            "dogs".to_string() => 0.17609125905568124,
+            "are".to_string() => 0.0,
+            "friends".to_string() => 0.47712125471966244,
+        };
+
+        let docs_map: HashMap<Document, HashMap<String, f64>> = hashmap! {
+            doc1.clone() => doc1_map,
+            doc2.clone() => doc2_map,
+            doc3.clone() => doc3_map,
+        };
+
         // when:
         let result: HashMap<Document, HashMap<String, f64>> = document_to_term_to_idf(
             &document_to_term_to_count_map,
             &term_to_document_to_count_map,
         );
 
-        // println!("######## {:?}", document_to_term_to_count_map);
-        // println!("XXXXXX {:?}", term_to_document_to_count_map);
-        println!("----> ######## {:?}", result);
+        // println!("Doc1: {:?}", result.get(&doc1.clone()).unwrap());
+        // println!("Doc2: {:?}", result.get(&doc2.clone()).unwrap());
+        // println!("Doc3: {:?}", result.get(&doc3.clone()).unwrap());
+
+        result
+            .iter()
+            .for_each(|(result_document, result_term_to_idf)| {
+                // println!("Doc: {}", result_document.path);
+
+                let expected_term_to_idf: &HashMap<String, f64> =
+                    docs_map.get(result_document).unwrap();
+
+                expected_term_to_idf
+                    .iter()
+                    .for_each(|(expected_term, expected_idf)| {
+                        let result_idf: &f64 = result_term_to_idf.get(expected_term).unwrap();
+                        // println!(
+                        //     "{} => {} => {} => {}",
+                        //     result_document.path, expected_term, expected_idf, result_idf
+                        // );
+                        assert_eq!(result_idf, expected_idf);
+                    });
+            });
     }
 
     #[test]
@@ -985,25 +1060,26 @@ mod tests {
                 &document_to_total_term_count_map,
             );
 
-        println!(
-            "DOC1: {:?}",
-            document_to_term_to_tf_map.get(&doc_1).unwrap()
-        );
-        println!(
-            "DOC2: {:?}",
-            document_to_term_to_tf_map.get(&doc_2).unwrap()
-        );
-        println!(
-            "DOC3: {:?}",
-            document_to_term_to_tf_map.get(&doc_3).unwrap()
-        );
+        // println!(
+        //     "DOC1: {:?}",
+        //     document_to_term_to_tf_map.get(&doc_1).unwrap()
+        // );
+        // println!(
+        //     "DOC2: {:?}",
+        //     document_to_term_to_tf_map.get(&doc_2).unwrap()
+        // );
+        // println!(
+        //     "DOC3: {:?}",
+        //     document_to_term_to_tf_map.get(&doc_3).unwrap()
+        // );
+        //
 
         // DOC1
         assert_eq!(
             *document_to_term_to_tf_map
                 .get(&doc_1)
                 .unwrap()
-                .get("THE")
+                .get("the")
                 .unwrap(),
             2f64 / 6f64
         );
@@ -1011,7 +1087,7 @@ mod tests {
             *document_to_term_to_tf_map
                 .get(&doc_1)
                 .unwrap()
-                .get("CATS")
+                .get("cats")
                 .unwrap(),
             1f64 / 6f64
         );
@@ -1019,7 +1095,7 @@ mod tests {
             *document_to_term_to_tf_map
                 .get(&doc_1)
                 .unwrap()
-                .get("ARE")
+                .get("are")
                 .unwrap(),
             1f64 / 6f64
         );
@@ -1027,7 +1103,7 @@ mod tests {
             *document_to_term_to_tf_map
                 .get(&doc_1)
                 .unwrap()
-                .get("IN")
+                .get("in")
                 .unwrap(),
             1f64 / 6f64
         );
@@ -1035,7 +1111,7 @@ mod tests {
             *document_to_term_to_tf_map
                 .get(&doc_1)
                 .unwrap()
-                .get("HOUSE")
+                .get("house")
                 .unwrap(),
             1f64 / 6f64
         );
@@ -1045,7 +1121,7 @@ mod tests {
             *document_to_term_to_tf_map
                 .get(&doc_2)
                 .unwrap()
-                .get("THE")
+                .get("the")
                 .unwrap(),
             2f64 / 8f64
         );
@@ -1053,7 +1129,7 @@ mod tests {
             *document_to_term_to_tf_map
                 .get(&doc_2)
                 .unwrap()
-                .get("DOGS")
+                .get("dogs")
                 .unwrap(),
             1f64 / 8f64
         );
@@ -1061,7 +1137,7 @@ mod tests {
             *document_to_term_to_tf_map
                 .get(&doc_2)
                 .unwrap()
-                .get("ARE")
+                .get("are")
                 .unwrap(),
             1f64 / 8f64
         );
@@ -1069,7 +1145,7 @@ mod tests {
             *document_to_term_to_tf_map
                 .get(&doc_2)
                 .unwrap()
-                .get("IN")
+                .get("in")
                 .unwrap(),
             1f64 / 8f64
         );
@@ -1077,7 +1153,7 @@ mod tests {
             *document_to_term_to_tf_map
                 .get(&doc_2)
                 .unwrap()
-                .get("HOUSE")
+                .get("house")
                 .unwrap(),
             1f64 / 8f64
         );
@@ -1085,7 +1161,7 @@ mod tests {
             *document_to_term_to_tf_map
                 .get(&doc_2)
                 .unwrap()
-                .get("AND")
+                .get("and")
                 .unwrap(),
             1f64 / 8f64
         );
@@ -1093,7 +1169,7 @@ mod tests {
             *document_to_term_to_tf_map
                 .get(&doc_2)
                 .unwrap()
-                .get("OUTSIDE")
+                .get("outside")
                 .unwrap(),
             1f64 / 8f64
         );
@@ -1103,7 +1179,7 @@ mod tests {
             *document_to_term_to_tf_map
                 .get(&doc_3)
                 .unwrap()
-                .get("THE")
+                .get("the")
                 .unwrap(),
             1f64 / 6f64
         );
@@ -1111,7 +1187,7 @@ mod tests {
             *document_to_term_to_tf_map
                 .get(&doc_3)
                 .unwrap()
-                .get("DOGS")
+                .get("dogs")
                 .unwrap(),
             1f64 / 6f64
         );
@@ -1119,7 +1195,7 @@ mod tests {
             *document_to_term_to_tf_map
                 .get(&doc_3)
                 .unwrap()
-                .get("AND")
+                .get("and")
                 .unwrap(),
             1f64 / 6f64
         );
@@ -1127,7 +1203,7 @@ mod tests {
             *document_to_term_to_tf_map
                 .get(&doc_3)
                 .unwrap()
-                .get("CATS")
+                .get("cats")
                 .unwrap(),
             1f64 / 6f64
         );
@@ -1135,7 +1211,7 @@ mod tests {
             *document_to_term_to_tf_map
                 .get(&doc_3)
                 .unwrap()
-                .get("FRIENDS")
+                .get("friends")
                 .unwrap(),
             1f64 / 6f64
         );
