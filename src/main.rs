@@ -263,12 +263,12 @@ fn document_to_count(
     totals
 }
 
-type DocToTermCount = HashMap<Document, HashMap<String, usize>>;
-type TermToDocCount = HashMap<String, HashMap<Document, usize>>;
+type DocToTermCountMap = HashMap<Document, HashMap<String, usize>>;
+type TermToDocCountMap = HashMap<String, HashMap<Document, usize>>;
 
 fn document_and_term_to_count(
     document_to_content: &HashMap<Document, Option<DocumentContent>>,
-) -> (DocToTermCount, TermToDocCount) {
+) -> (DocToTermCountMap, TermToDocCountMap) {
     let mut _document_to_term_to_count_map: HashMap<Document, HashMap<String, usize>> =
         HashMap::new();
     let mut _term_to_document_to_count_map: HashMap<String, HashMap<Document, usize>> =
@@ -551,6 +551,37 @@ fn main() {
     }
 }
 
+fn process_documents(
+    documents: &[(Document, DocumentContent)],
+) -> (DocToTermCountMap, TermToDocCountMap) {
+    // Your function implementation here...
+    let mut document_to_term_to_count_map: HashMap<Document, HashMap<String, usize>> = hashmap! {};
+    let mut term_to_document_to_count_map: HashMap<String, HashMap<Document, usize>> = hashmap! {};
+
+    for (document, doc_content) in documents.iter() {
+        let words: Vec<&str> = doc_content.content.split_whitespace().collect();
+
+        let mut term_to_count_map: HashMap<String, usize> = HashMap::new();
+        for word in words {
+            *term_to_count_map.entry(word.to_string()).or_insert(0) += 1;
+        }
+
+        document_to_term_to_count_map.insert(document.clone(), term_to_count_map.clone());
+
+        for (term, count) in term_to_count_map.iter() {
+            let entry: &mut HashMap<Document, usize> = term_to_document_to_count_map
+                .entry(term.clone())
+                .or_default();
+
+            let new_count = entry.get(document).unwrap_or(&0) + *count;
+
+            entry.insert(document.clone(), new_count);
+        }
+    }
+
+    (document_to_term_to_count_map, term_to_document_to_count_map)
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -562,11 +593,12 @@ mod tests {
     use super::document_to_term_to_tf;
     use super::inverse_document_frequency;
     use super::number_of_documents_with_term;
+    use super::process_documents;
     use super::term_frequency_inverse_document_frequency;
-    use super::DocToTermCount;
+    use super::DocToTermCountMap;
     use super::Document;
     use super::DocumentContent;
-    use super::TermToDocCount;
+    use super::TermToDocCountMap;
     use pretty_assertions::assert_eq;
     use std::collections::HashMap;
 
@@ -586,7 +618,7 @@ mod tests {
         );
 
         // when:
-        let (document_to_term_to_count_map, _): (DocToTermCount, TermToDocCount) =
+        let (document_to_term_to_count_map, _): (DocToTermCountMap, TermToDocCountMap) =
             document_and_term_to_count(&mock_document_contents);
 
         // then:
@@ -788,13 +820,13 @@ mod tests {
 
     #[test]
     fn test_document_to_term_to_idf() {
-        let doc1: DocumentContent = DocumentContent {
+        let content_1: DocumentContent = DocumentContent {
             content: "the cats are in the house".to_string(),
         };
-        let doc2: DocumentContent = DocumentContent {
+        let content_2: DocumentContent = DocumentContent {
             content: "the dogs are in the house and outside".to_string(),
         };
-        let doc3: DocumentContent = DocumentContent {
+        let content_3: DocumentContent = DocumentContent {
             content: "the cats and dogs are friends".to_string(),
         };
 
@@ -803,47 +835,26 @@ mod tests {
                 Document {
                     path: "Doc1".to_string(),
                 },
-                doc1,
+                content_1,
             ),
             (
                 Document {
                     path: "Doc2".to_string(),
                 },
-                doc2,
+                content_2,
             ),
             (
                 Document {
                     path: "Doc3".to_string(),
                 },
-                doc3,
+                content_3,
             ),
         ];
 
-        let mut document_to_term_to_count_map: HashMap<Document, HashMap<String, usize>> =
-            hashmap! {};
-        let mut term_to_document_to_count_map: HashMap<String, HashMap<Document, usize>> =
-            hashmap! {};
-
-        for (document, doc_content) in documents.iter() {
-            let words: Vec<&str> = doc_content.content.split_whitespace().collect();
-
-            let mut term_to_count_map: HashMap<String, usize> = HashMap::new();
-            for word in words {
-                *term_to_count_map.entry(word.to_string()).or_insert(0) += 1;
-            }
-
-            document_to_term_to_count_map.insert(document.clone(), term_to_count_map.clone());
-
-            for (term, count) in term_to_count_map.iter() {
-                let entry: &mut HashMap<Document, usize> = term_to_document_to_count_map
-                    .entry(term.clone())
-                    .or_default();
-
-                let new_count = entry.get(document).unwrap_or(&0) + *count;
-
-                entry.insert(document.clone(), new_count);
-            }
-        }
+        let (document_to_term_to_count_map, term_to_document_to_count_map): (
+            DocToTermCountMap,
+            TermToDocCountMap,
+        ) = process_documents(&documents);
 
         let doc1 = Document {
             path: "Doc1".to_string(),
@@ -889,16 +900,13 @@ mod tests {
         };
 
         // when:
-        let result: HashMap<Document, HashMap<String, f64>> = document_to_term_to_idf(
-            &document_to_term_to_count_map,
-            &term_to_document_to_count_map,
-        );
+        let result_document_to_term_to_idf: HashMap<Document, HashMap<String, f64>> =
+            document_to_term_to_idf(
+                &document_to_term_to_count_map,
+                &term_to_document_to_count_map,
+            );
 
-        // println!("Doc1: {:?}", result.get(&doc1.clone()).unwrap());
-        // println!("Doc2: {:?}", result.get(&doc2.clone()).unwrap());
-        // println!("Doc3: {:?}", result.get(&doc3.clone()).unwrap());
-
-        result
+        result_document_to_term_to_idf
             .iter()
             .for_each(|(result_document, result_term_to_idf)| {
                 // println!("Doc: {}", result_document.path);
@@ -1047,7 +1055,7 @@ mod tests {
         };
 
         // Count occurrences of each term in each document
-        let (document_to_term_to_count_map, _): (DocToTermCount, TermToDocCount) =
+        let (document_to_term_to_count_map, _): (DocToTermCountMap, TermToDocCountMap) =
             document_and_term_to_count(&document_to_content);
 
         // Calculate total number of terms for each document
