@@ -1268,18 +1268,40 @@ mod tests {
         // Calculate total number of terms for each document
         let document_to_total_term_count_map: HashMap<Document, usize> =
             document_to_count(&document_to_term_to_count_map);
+
         // when:
-        // Calculate term frequency for each term in each document
         let document_to_term_to_tf_map: HashMap<Document, HashMap<String, f64>> =
             document_to_term_to_tf(
                 &document_to_term_to_count_map,
                 &document_to_total_term_count_map,
             );
-        let result_document_to_term_to_idf: HashMap<Document, HashMap<String, f64>> =
+        let document_to_term_to_idf_map: HashMap<Document, HashMap<String, f64>> =
             document_to_term_to_idf(
                 &document_to_term_to_count_map,
                 &term_to_document_to_count_map,
             );
+
+        let document_to_term_to_tf_idf_map: HashMap<Document, HashMap<String, f64>> = documents
+            .iter()
+            .map(|(document, _)| {
+                let term_to_idf: &HashMap<String, f64> =
+                    document_to_term_to_idf_map.get(document).unwrap();
+                let term_to_tf: &HashMap<String, f64> =
+                    document_to_term_to_tf_map.get(document).unwrap();
+
+                let tf_idf_map: HashMap<String, f64> = term_to_tf
+                    .iter()
+                    .map(|(term, tf)| {
+                        let idf = term_to_idf.get(term).unwrap();
+                        (term.clone(), tf * idf)
+                    })
+                    .collect();
+
+                (document.clone(), tf_idf_map)
+            })
+            .collect();
+
+        println!("TF-IDF: {:?}", document_to_term_to_tf_idf_map);
     }
 }
 
