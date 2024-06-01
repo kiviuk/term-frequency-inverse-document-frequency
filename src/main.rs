@@ -1226,5 +1226,60 @@ mod tests {
             1f64 / 6f64
         );
     }
+
+    #[test]
+    fn test_tf_idf() {
+        let content_1: DocumentContent = DocumentContent {
+            content: "the cats are in the house".to_string(),
+        };
+        let content_2: DocumentContent = DocumentContent {
+            content: "the dogs are in the house and outside".to_string(),
+        };
+        let content_3: DocumentContent = DocumentContent {
+            content: "the cats and dogs are friends".to_string(),
+        };
+
+        let documents: [(Document, DocumentContent); 3] = [
+            (
+                Document {
+                    path: "Doc1".to_string(),
+                },
+                content_1,
+            ),
+            (
+                Document {
+                    path: "Doc2".to_string(),
+                },
+                content_2,
+            ),
+            (
+                Document {
+                    path: "Doc3".to_string(),
+                },
+                content_3,
+            ),
+        ];
+
+        let (document_to_term_to_count_map, term_to_document_to_count_map): (
+            DocToTermCountMap,
+            TermToDocCountMap,
+        ) = process_documents(&documents);
+
+        // Calculate total number of terms for each document
+        let document_to_total_term_count_map: HashMap<Document, usize> =
+            document_to_count(&document_to_term_to_count_map);
+        // when:
+        // Calculate term frequency for each term in each document
+        let document_to_term_to_tf_map: HashMap<Document, HashMap<String, f64>> =
+            document_to_term_to_tf(
+                &document_to_term_to_count_map,
+                &document_to_total_term_count_map,
+            );
+        let result_document_to_term_to_idf: HashMap<Document, HashMap<String, f64>> =
+            document_to_term_to_idf(
+                &document_to_term_to_count_map,
+                &term_to_document_to_count_map,
+            );
+    }
 }
 
