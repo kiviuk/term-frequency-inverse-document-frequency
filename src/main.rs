@@ -921,6 +921,7 @@ mod tests {
 
     #[test]
     fn test_number_of_documents_with_term() {
+        // given:
         let term_to_document_to_count_map: HashMap<String, HashMap<Document, usize>> = hashmap! {
             "and".to_string() => hashmap!{
                 Document { path: "Doc2".to_string() } => 1,
@@ -960,6 +961,7 @@ mod tests {
             },
         };
 
+        // when:
         let the: usize =
             number_of_documents_with_term(&term_to_document_to_count_map, &"the".to_string());
         let and: usize =
@@ -969,6 +971,7 @@ mod tests {
         let unknown: usize =
             number_of_documents_with_term(&term_to_document_to_count_map, &"unknown".to_string());
 
+        // then:
         assert_eq!(the, 3);
         assert_eq!(and, 2);
         assert_eq!(are, 3);
@@ -1051,6 +1054,7 @@ mod tests {
         let document_to_total_term_count_map: HashMap<Document, usize> =
             document_to_count(&document_to_term_to_count_map);
 
+        // when:
         // Calculate term frequency for each term in each document
         let document_to_term_to_tf_map: HashMap<Document, HashMap<String, f64>> =
             document_to_term_to_tf(
