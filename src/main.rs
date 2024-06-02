@@ -46,12 +46,16 @@ Here's a simple explanation of how it works:
    Frequency (IDF).
 6. Document Ranking: The search engine then ranks the documents based on the cosine similarity of
    the TF-IDF vectors of the query and the documents. The cosine similarity measures the cosine of
-   the angle between two vectors. This angle will be smaller for vectors that point roughly in the
+   3he angle between two vectors. This angle will be smaller for vectors that point roughly in the
    same direction, meaning that the query and the document share many terms with high TF-IDF weights.
    The documents are then returned to the user in the order of their relevance.
 7. On-going updates: Search engines constantly update their database, as new webpages are created,
    old ones are deleted and existing ones updated. So, the TF-IDF calculation is an ongoing process
-in the backend.  score for the query words.
+   in the backend.  score for the query words.
+
+8. Ressources:
+   https://www.youtube.com/watch?v=zLMEnNbdh4Q&t=421s
+   https://youtu.be/fIYSi41f1yg?t=234
 */
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
@@ -516,11 +520,11 @@ fn main() {
     let document_to_content_map: HashMap<Document, Option<DocumentContent>> =
         document_path_to_content(&document_paths);
 
+    // type DocToTermCountMap = HashMap<Document, HashMap<String, usize>>;
+    // type TermToDocCountMap = HashMap<String, HashMap<Document, usize>>;
     // Count occurrences of each term in each document
-    let (document_to_term_to_count_map, _): (
-        HashMap<Document, HashMap<String, usize>>,
-        HashMap<String, HashMap<Document, usize>>,
-    ) = document_and_term_to_count(&document_to_content_map);
+    let (document_to_term_to_count_map, _): (DocToTermCountMap, TermToDocCountMap) =
+        document_and_term_to_count(&document_to_content_map);
 
     // Calculate total number of terms for each document
     let document_to_count_map: HashMap<Document, usize> =
