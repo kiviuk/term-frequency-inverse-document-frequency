@@ -520,9 +520,7 @@ fn main() {
     let document_to_content_map: HashMap<Document, Option<DocumentContent>> =
         document_path_to_content(&document_paths);
 
-    // type DocToTermCountMap = HashMap<Document, HashMap<String, usize>>;
-    // type TermToDocCountMap = HashMap<String, HashMap<Document, usize>>;
-    // Count occurrences of each term in each document
+    // Count occurrences f each term in each document
     let (document_to_term_to_count_map, _): (DocToTermCountMap, TermToDocCountMap) =
         document_and_term_to_count(&document_to_content_map);
 
@@ -559,8 +557,8 @@ fn process_documents(
     documents: &[(Document, DocumentContent)],
 ) -> (DocToTermCountMap, TermToDocCountMap) {
     // Your function implementation here...
-    let mut document_to_term_to_count_map: HashMap<Document, HashMap<String, usize>> = hashmap! {};
-    let mut term_to_document_to_count_map: HashMap<String, HashMap<Document, usize>> = hashmap! {};
+    let mut document_to_term_to_count_map: DocToTermCountMap = hashmap! {};
+    let mut term_to_document_to_count_map: TermToDocCountMap = hashmap! {};
 
     for (document, doc_content) in documents.iter() {
         let words: Vec<&str> = doc_content.content.split_whitespace().collect();
