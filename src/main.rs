@@ -584,6 +584,29 @@ fn process_documents(
     (document_to_term_to_count_map, term_to_document_to_count_map)
 }
 
+fn document_to_term_to_tf_idf_map(
+    document_to_term_to_tf_map: &HashMap<Document, HashMap<String, f64>>,
+    document_to_term_to_idf_map: &HashMap<Document, HashMap<String, f64>>,
+) -> HashMap<Document, HashMap<String, f64>> {
+    document_to_term_to_tf_map
+        .iter()
+        .map(|(document, term_to_tf_map)| {
+            let tf_idf_map: HashMap<String, f64> = term_to_tf_map
+                .iter()
+                .map(|(term, tf)| {
+                    let idf = document_to_term_to_idf_map
+                        .get(document)
+                        .unwrap()
+                        .get(term)
+                        .unwrap();
+                    (term.clone(), tf * idf)
+                })
+                .collect();
+            (document.clone(), tf_idf_map)
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -593,6 +616,7 @@ mod tests {
     use super::document_to_sorted_terms;
     use super::document_to_term_to_idf;
     use super::document_to_term_to_tf;
+    use super::document_to_term_to_tf_idf_map;
     use super::inverse_document_frequency;
     use super::number_of_documents_with_term;
     use super::process_documents;
@@ -1072,20 +1096,6 @@ mod tests {
                 &document_to_total_term_count_map,
             );
 
-        // println!(
-        //     "DOC1: {:?}",
-        //     document_to_term_to_tf_map.get(&doc_1).unwrap()
-        // );
-        // println!(
-        //     "DOC2: {:?}",
-        //     document_to_term_to_tf_map.get(&doc_2).unwrap()
-        // );
-        // println!(
-        //     "DOC3: {:?}",
-        //     document_to_term_to_tf_map.get(&doc_3).unwrap()
-        // );
-        //
-
         // DOC1
         assert_eq!(
             *document_to_term_to_tf_map
@@ -1283,27 +1293,54 @@ mod tests {
                 &term_to_document_to_count_map,
             );
 
-        let document_to_term_to_tf_idf_map: HashMap<Document, HashMap<String, f64>> = documents
-            .iter()
-            .map(|(document, _)| {
-                let term_to_idf: &HashMap<String, f64> =
-                    document_to_term_to_idf_map.get(document).unwrap();
-                let term_to_tf: &HashMap<String, f64> =
-                    document_to_term_to_tf_map.get(document).unwrap();
+        let expected_document_to_term_to_tf_idf_map: HashMap<Document, HashMap<String, f64>> = hashmap! {
+            Document { path: "Doc1".into() } => hashmap!{
+                "the".to_string()   => 0.0,
+                "cats".to_string()  => 0.029348543175946873,
+                "are".to_string()   => 0.0,
+                "in".to_string()    => 0.029348543175946873,
+                "house".to_string() => 0.029348543175946873
+            },
+            Document { path: "Doc2".into() } => hashmap!{
+                "the".to_string()     => 0.0,
+                "dogs".to_string()    => 0.022011407381960155,
+                "are".to_string()     => 0.0,
+                "in".to_string()      => 0.022011407381960155,
+                "house".to_string()   => 0.022011407381960155,
+                "and".to_string()     => 0.022011407381960155,
+                "outside".to_string() => 0.059640156839957804
+            },
+            Document { path: "Doc3".into() } => hashmap!{
+                "the".to_string()     => 0.0,
+                "dogs".to_string()    => 0.029348543175946873,
+                "and".to_string()     => 0.029348543175946873,
+                "cats".to_string()    => 0.029348543175946873,
+                "are".to_string()     => 0.0,
+                "friends".to_string() => 0.07952020911994373,
+            },
+        };
 
-                let tf_idf_map: HashMap<String, f64> = term_to_tf
+        let actual_document_to_term_to_tf_idf_map: HashMap<Document, HashMap<String, f64>> =
+            document_to_term_to_tf_idf_map(
+                &document_to_term_to_tf_map,
+                &document_to_term_to_idf_map,
+            );
+
+        expected_document_to_term_to_tf_idf_map.iter().for_each(
+            |(expected_document, expected_tf_idf_map)| {
+                let actual_term_to_tf_idf_map = actual_document_to_term_to_tf_idf_map
+                    .get(expected_document)
+                    .unwrap();
+
+                expected_tf_idf_map
                     .iter()
-                    .map(|(term, tf)| {
-                        let idf = term_to_idf.get(term).unwrap();
-                        (term.clone(), tf * idf)
-                    })
-                    .collect();
+                    .for_each(|(expected_term, expected_tf_idf)| {
+                        let actual_tf_idf = actual_term_to_tf_idf_map.get(expected_term).unwrap();
+                        assert_eq!(expected_tf_idf, actual_tf_idf);
+                    });
+            },
+        );
 
-                (document.clone(), tf_idf_map)
-            })
-            .collect();
-
-        println!("TF-IDF: {:?}", document_to_term_to_tf_idf_map);
+        println!("TF-IDF: {:?}", actual_document_to_term_to_tf_idf_map);
     }
 }
-
