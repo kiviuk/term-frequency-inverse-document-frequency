@@ -1328,15 +1328,15 @@ mod tests {
 
         expected_document_to_term_to_tf_idf_map.iter().for_each(
             |(expected_document, expected_tf_idf_map)| {
-                let actual_term_to_tf_idf_map = actual_document_to_term_to_tf_idf_map
-                    .get(expected_document)
-                    .unwrap();
-
                 expected_tf_idf_map
                     .iter()
                     .for_each(|(expected_term, expected_tf_idf)| {
-                        let actual_tf_idf = actual_term_to_tf_idf_map.get(expected_term).unwrap();
-                        assert_eq!(expected_tf_idf, actual_tf_idf);
+                        let actual_tf_idf = actual_document_to_term_to_tf_idf_map
+                            .get(expected_document)
+                            .unwrap()
+                            .get(expected_term)
+                            .unwrap();
+                        assert_eq!(actual_tf_idf, expected_tf_idf);
                     });
             },
         );
