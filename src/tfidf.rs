@@ -572,6 +572,28 @@ fn term_to_document_to_tf_idf_map(
 
     term_to_document_to_tf_idf_map
 }
+
+fn rank_documents(
+    search_term: &str,
+    term_to_document_to_tf_idf_map: &HashMap<&str, HashMap<Document, f64>>,
+) -> Vec<(Document, f64)> {
+    let ranked_docs: Vec<(Document, f64)> = term_to_document_to_tf_idf_map
+        .get(search_term)
+        .map(|document_to_tf_idf| {
+            document_to_tf_idf
+                .iter()
+                .map(|(document, tf_idf)| (document.clone(), *tf_idf))
+                .collect()
+        })
+        .unwrap_or_default();
+
+    // Sort ranked_docs in descending order by TF-IDF using a tuple comparison
+    let mut sorted_ranked_docs = ranked_docs;
+    sorted_ranked_docs.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+
+    sorted_ranked_docs
+}
+
 #[cfg(test)]
 mod tests {
     use super::count_unique_documents;
@@ -584,6 +606,7 @@ mod tests {
     use super::inverse_document_frequency;
     use super::number_of_documents_with_term;
     use super::process_documents;
+    use super::rank_documents;
     use super::term_frequency_inverse_document_frequency;
     use super::term_to_document_to_tf_idf_map;
     use super::DocToTermCountMap;
@@ -1423,5 +1446,50 @@ mod tests {
             }
         }
         // println!("TF-IDF: {:?}", actual_term_to_document_to_tf_idf_map);
+    }
+    #[test]
+    fn test_rank_documents() {
+        let term_to_document_to_tf_idf_map: HashMap<&str, HashMap<Document, f64>> = hashmap![
+            "the" => hashmap![
+                Document { path: "Doc1".into() } => 0.0,
+                Document { path: "Doc2".into() } => 0.0,
+                Document { path: "Doc3".into() } => 0.0
+            ],
+            "friends" => hashmap![
+                Document { path: "Doc3".into() } => 0.07952020911994373
+            ],
+            "house" => hashmap![
+                Document { path: "Doc1".into() } => 0.029348543175946873,
+                Document { path: "Doc2".into() } => 0.022011407381960155,
+            ],
+            "are" => hashmap![
+                Document { path: "Doc1".into() } => 0.0,
+                Document { path: "Doc2".into() } => 0.0,
+                Document { path: "Doc3".into() } => 0.0,
+            ],
+            "cats" => hashmap![
+                Document { path: "Doc1".into() } => 0.029348543175946873,
+                Document { path: "Doc3".into() } => 0.029348543175946873,
+            ],
+            "and" => hashmap![
+                Document { path: "Doc2".into() } => 0.022011407381960155,
+                Document { path: "Doc3".into() } => 0.029348543175946873,
+            ],
+            "outside" => hashmap![
+                Document { path: "Doc2".into() } => 0.059640156839957804,
+            ],
+            "in" => hashmap![
+                Document { path: "Doc1".into() } => 0.029348543175946873,
+                Document { path: "Doc2".into() } => 0.022011407381960155,
+            ],
+            "dogs" => hashmap![
+                Document { path: "Doc2".into() } => 0.022011407381960155,
+                Document { path: "Doc3".into() } => 0.029348543175946873,
+            ]
+        ];
+
+        let actual_ranked_docs = rank_documents("in", &term_to_document_to_tf_idf_map);
+
+        println!("{:?}", actual_ranked_docs);
     }
 }
