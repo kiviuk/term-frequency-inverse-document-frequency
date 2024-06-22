@@ -1488,8 +1488,24 @@ mod tests {
             ]
         ];
 
+        let expected_ranked_docs = vec![
+            (
+                Document {
+                    path: "Doc1".into(),
+                },
+                0.029348543175946873,
+            ),
+            (
+                Document {
+                    path: "Doc2".into(),
+                },
+                0.022011407381960155,
+            ),
+        ];
+
         let actual_ranked_docs = rank_documents("in", &term_to_document_to_tf_idf_map);
 
-        println!("{:?}", actual_ranked_docs);
+        assert_eq!(expected_ranked_docs, actual_ranked_docs);
+        // println!("{:?}", actual_ranked_docs);
     }
 }
