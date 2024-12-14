@@ -4,9 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-xml-rs = "0.8.20"
+xml-rs = "0.8.24"
 itertools = "0.13.0"
 maplit = "1.0.2"
+clap = { version = "4.5.23", features = ["derive", "cargo"] }
 
 [dev-dependencies]
-pretty_assertions = "1.4.0"
+pretty_assertions = "1.4.1"

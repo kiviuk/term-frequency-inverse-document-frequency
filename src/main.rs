@@ -14,16 +14,13 @@ use crate::tfidf::{
     DocToTermCountMap,
 };
 
-use crate::args::*;
-use crate::args::parse_args;
+use clap::Parser;
 
 use std::collections::HashMap;
 use itertools::Itertools;
 
 fn main() {
 
-    let args: Vec<String> = std::env::args().collect();
-    let _parsed_args: Vec<String> = parse_args(args);
 
     let dir_paths = [
         "docs.gl/gl2",
